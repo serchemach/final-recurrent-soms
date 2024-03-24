@@ -16,9 +16,9 @@ const VISUALIZATIONS_SAVE_PATH: &str = "./data/vz.sv";
 
 #[derive(Debug)]
 enum PaneType {
-    DataProcessing(DataProcessingState),
-    Maps(MapsState),
-    Visualizations(VisualizationsState)
+    DataProcessing(DataProcessingUI),
+    Maps(MapsUI),
+    Visualizations(VisualizationsUI)
 }
 
 struct Pane {
@@ -38,12 +38,12 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
         _tile_id: egui_tiles::TileId,
         pane: &mut Pane,
     ) -> egui_tiles::UiResponse {
-        // Give each pane a unique color:
-        // let color = egui::epaint::Hsva::new(0.103 * pane.nr as f32, 0.5, 0.5, 1.0);
-        let color = Color32::RED;
-        ui.painter().rect_filled(ui.max_rect(), 0.0, color);
-
-        ui.label(format!("The contents of pane {:?}.", pane.p_type));
+        
+        match &mut pane.p_type {
+            PaneType::DataProcessing(state) => state.show(ui),
+            PaneType::Maps(state) => state.show(ui),
+            PaneType::Visualizations(state) => state.show(ui),
+        }
 
         // You can make your pane draggable like so:
         if ui.interact(ui.available_rect_before_wrap(), egui::Id::new(_tile_id), Sense::drag())
@@ -78,9 +78,9 @@ fn create_tree() -> egui_tiles::Tree<Pane> {
     let mut tiles = egui_tiles::Tiles::default();
 
     let mut tabs = vec![];
-    tabs.push(tiles.insert_pane(Pane { p_type: PaneType::DataProcessing(DataProcessingState::default()) }));
-    tabs.push(tiles.insert_pane(Pane { p_type: PaneType::Maps(MapsState::default()) }));
-    tabs.push(tiles.insert_pane(Pane { p_type: PaneType::Visualizations(VisualizationsState::default()) }));
+    tabs.push(tiles.insert_pane(Pane { p_type: PaneType::DataProcessing(DataProcessingUI::default()) }));
+    tabs.push(tiles.insert_pane(Pane { p_type: PaneType::Maps(MapsUI::default()) }));
+    tabs.push(tiles.insert_pane(Pane { p_type: PaneType::Visualizations(VisualizationsUI::default()) }));
 
     let root = tiles.insert_tab_tile(tabs);
 
