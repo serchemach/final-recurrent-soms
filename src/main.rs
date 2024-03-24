@@ -1,14 +1,35 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
+mod data_processing;
+mod maps;
+mod visualizations;
+
+use data_processing::{*};
+use env_logger::fmt::style::Color;
+use maps::{*};
+use visualizations::{*};
+
+use egui::{Button, Color32, Id, Sense};
+
+const DATA_PROCESSING_SAVE_PATH: &str = "./data/dp.sv";
+const MAPS_SAVE_PATH: &str = "./data/mp.sv";
+const VISUALIZATIONS_SAVE_PATH: &str = "./data/vz.sv";
+
+#[derive(Debug)]
+enum PaneType {
+    DataProcessing(DataProcessingState),
+    Maps(MapsState),
+    Visualizations(VisualizationsState)
+}
 
 struct Pane {
-    nr: usize,
+    p_type: PaneType,
 }
 
 struct TreeBehavior {}
 
 impl egui_tiles::Behavior<Pane> for TreeBehavior {
     fn tab_title_for_pane(&mut self, pane: &Pane) -> egui::WidgetText {
-        format!("Pane {}", pane.nr).into()
+        format!("Pane {:?}", pane.p_type).into()
     }
 
     fn pane_ui(
@@ -18,16 +39,15 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
         pane: &mut Pane,
     ) -> egui_tiles::UiResponse {
         // Give each pane a unique color:
-        let color = egui::epaint::Hsva::new(0.103 * pane.nr as f32, 0.5, 0.5, 1.0);
+        // let color = egui::epaint::Hsva::new(0.103 * pane.nr as f32, 0.5, 0.5, 1.0);
+        let color = Color32::RED;
         ui.painter().rect_filled(ui.max_rect(), 0.0, color);
 
-        ui.label(format!("The contents of pane {}.", pane.nr));
+        ui.label(format!("The contents of pane {:?}.", pane.p_type));
 
         // You can make your pane draggable like so:
-        if ui
-            .add(egui::Button::new("Drag me!").sense(egui::Sense::drag()))
-            .drag_started()
-        {
+        if ui.interact(ui.available_rect_before_wrap(), egui::Id::new(_tile_id), Sense::drag())
+        .dragged() {
             egui_tiles::UiResponse::DragStarted
         } else {
             egui_tiles::UiResponse::None
@@ -39,7 +59,7 @@ fn main() -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
 
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([320.0, 240.0]),
+        viewport: egui::ViewportBuilder::default().with_inner_size([520.0, 240.0]),
         ..Default::default()
     };
 
@@ -54,25 +74,13 @@ fn main() -> Result<(), eframe::Error> {
 }
 
 fn create_tree() -> egui_tiles::Tree<Pane> {
-    let mut next_view_nr = 0;
-    let mut gen_pane = || {
-        let pane = Pane { nr: next_view_nr };
-        next_view_nr += 1;
-        pane
-    };
 
     let mut tiles = egui_tiles::Tiles::default();
 
     let mut tabs = vec![];
-    tabs.push({
-        let children = (0..7).map(|_| tiles.insert_pane(gen_pane())).collect();
-        tiles.insert_horizontal_tile(children)
-    });
-    tabs.push({
-        let cells = (0..11).map(|_| tiles.insert_pane(gen_pane())).collect();
-        tiles.insert_grid_tile(cells)
-    });
-    tabs.push(tiles.insert_pane(gen_pane()));
+    tabs.push(tiles.insert_pane(Pane { p_type: PaneType::DataProcessing(DataProcessingState::default()) }));
+    tabs.push(tiles.insert_pane(Pane { p_type: PaneType::Maps(MapsState::default()) }));
+    tabs.push(tiles.insert_pane(Pane { p_type: PaneType::Visualizations(VisualizationsState::default()) }));
 
     let root = tiles.insert_tab_tile(tabs);
 
