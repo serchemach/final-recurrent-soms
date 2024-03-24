@@ -11,7 +11,7 @@ enum ProcessingType {
     Word2Vec
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct DataSet {
     raw_data: Vec<String>,
     processed_data: Option<Vec<Array1<f32>>>,
@@ -117,7 +117,7 @@ impl DataProcessingUI {
                 }
             });
         }
-        
+
         ScrollArea::vertical().show(ui, |ui| {
             ui.vertical_centered(|ui| {
                 if self.datasets.len() == 0 {
