@@ -1,6 +1,6 @@
 use std::io::Read;
 
-use egui::{CentralPanel, Color32, Rounding, SidePanel, Ui};
+use egui::{include_image, CentralPanel, Color32, Frame, Grid, Image, Rounding, Sense, SidePanel, Stroke, Style, Ui, Vec2};
 use ndarray::Array1;
 use rfd::FileDialog;
 
@@ -26,11 +26,73 @@ impl Default for DataProcessingUI {
 }
 
 impl DataProcessingUI {
+    fn dataset_list(&mut self, ui: &mut Ui) {
+        for (index, dataset) in self.datasets.iter().enumerate() {
+            let frame_style = Style::default();
+            let is_current = Some(index) == self.shown_dataset_index;
+            let is_processed = dataset.processed_data.is_some();
+            let stroke_color = if is_current {
+                Color32::DARK_GRAY
+            }
+            else {
+                Color32::LIGHT_GRAY
+            };
+
+            let mut frame = Frame::group(&frame_style)
+                .rounding(Rounding::same(3.0))
+                .stroke(Stroke::new(1.5, stroke_color))
+                .inner_margin(2.5)
+                .outer_margin(2.5)
+                .fill(Color32::LIGHT_GRAY)
+                .begin(ui);
+            frame.content_ui.horizontal(|ui|{
+                if is_processed {
+                    ui.add(
+                        Image::new(include_image!("../resources/dataset_processed.svg"))
+                            .rounding(5.0).fit_to_exact_size(Vec2 { x: 30.0, y: 30.0 })
+                        );
+                }
+                else {
+                    ui.add(
+                    Image::new(include_image!("../resources/dataset_raw.svg"))
+                        .rounding(5.0).fit_to_exact_size(Vec2 { x: 30.0, y: 30.0 })
+                    );
+                }
+
+                ui.centered_and_justified(|ui| {
+                    ui.label(dataset.name.as_str());
+                });
+            });
+
+            let response = frame.allocate_space(ui).on_hover_cursor(egui::CursorIcon::PointingHand).interact(Sense::click());
+            if response.clicked() {
+                self.shown_dataset_index = Some(index);
+            }
+
+            if response.hovered() {
+                frame.frame.fill = Color32::WHITE;
+            }
+            frame.paint(ui);
+        }
+    }
+
     pub fn show(&mut self, ui: &mut Ui) {
         ui.painter().rect_filled(ui.max_rect(), Rounding::ZERO, Color32::WHITE);
         if let Some(ind) = self.shown_dataset_index {
             SidePanel::right("tooltip_data").resizable(false).show_inside(ui, |ui| {
-                ui.label(&self.datasets[ind].name);
+                let is_processed = self.datasets[ind].processed_data.is_some();
+                ui.text_edit_singleline(&mut self.datasets[ind].name);
+                
+                Grid::new("Parameters").show(ui, |ui| {
+                    ui.label("Processing Type: ");
+                    if is_processed {
+                        ui.label("Word2Vec 100");
+                    }
+                    else {
+                        ui.label("Unprocessed (Raw)");
+                    }
+                    ui.end_row();
+                });
             });
         }
 
@@ -39,9 +101,7 @@ impl DataProcessingUI {
                 ui.label("No datasets loaded");
             }
             else {
-                for dataset in &self.datasets {
-                    ui.label(dataset.name.as_str());
-                }
+                self.dataset_list(ui);
             }
     
             if ui.button("Load a new dataset from file").clicked() {

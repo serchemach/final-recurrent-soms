@@ -70,6 +70,8 @@ fn main() -> Result<(), eframe::Error> {
     let mut tree = create_tree();
 
     eframe::run_simple_native("My egui App", options, move |ctx, _frame| {
+        egui_extras::install_image_loaders(ctx);
+        
         egui::CentralPanel::default().show(ctx, |ui| {
             let mut behavior = TreeBehavior {};
             tree.ui(&mut behavior, ui);
