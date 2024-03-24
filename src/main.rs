@@ -29,7 +29,11 @@ struct TreeBehavior {}
 
 impl egui_tiles::Behavior<Pane> for TreeBehavior {
     fn tab_title_for_pane(&mut self, pane: &Pane) -> egui::WidgetText {
-        format!("Pane {:?}", pane.p_type).into()
+        match pane.p_type {
+            PaneType::DataProcessing(_) => "Data Processing",
+            PaneType::Maps(_) => "Maps",
+            PaneType::Visualizations(_) => "Visualizations",
+        }.into()
     }
 
     fn pane_ui(
@@ -38,7 +42,7 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
         _tile_id: egui_tiles::TileId,
         pane: &mut Pane,
     ) -> egui_tiles::UiResponse {
-        
+
         match &mut pane.p_type {
             PaneType::DataProcessing(state) => state.show(ui),
             PaneType::Maps(state) => state.show(ui),
