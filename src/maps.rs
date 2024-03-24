@@ -94,6 +94,7 @@ impl MapsUI {
                         // After clicking, the modal is automatically closed
                         modal.button(ui, "Cancel");
 
+                        // ToDo: Implement Map creation
                         if modal.button(ui, "Create").clicked() {
 
                         }

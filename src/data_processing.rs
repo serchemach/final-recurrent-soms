@@ -89,7 +89,9 @@ impl DataProcessingUI {
     pub fn show(&mut self, ui: &mut Ui) {
         ui.painter().rect_filled(ui.max_rect(), Rounding::ZERO, Color32::WHITE);
         if let Some(ind) = self.shown_dataset_index {
-            SidePanel::right("tooltip_data").resizable(false).show_inside(ui, |ui| {
+            SidePanel::right("tooltip_data")
+            .resizable(true)
+            .show_inside(ui, |ui| {
                 let chosen_dataset = &mut self.datasets[ind];
                 ui.text_edit_singleline(&mut chosen_dataset.name);
                 
@@ -115,6 +117,8 @@ impl DataProcessingUI {
                     // ToDo: Add the actual processing and maybe add processing types to dataset struct
                     chosen_dataset.processed_data = Some(vec![]);
                 }
+
+                ui.separator();
             });
         }
 
