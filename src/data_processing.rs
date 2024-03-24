@@ -1,10 +1,15 @@
-use std::io::Read;
+use std::{io::Read, vec};
 
-use egui::{include_image, CentralPanel, Color32, Frame, Grid, Image, Rounding, Sense, SidePanel, Stroke, Style, Ui, Vec2};
+use egui::{include_image, CentralPanel, Color32, ComboBox, Frame, Grid, Image, Rounding, Sense, SidePanel, Stroke, Style, Ui, Vec2};
 use ndarray::Array1;
 use rfd::FileDialog;
 
 const DATASET_SEPARATOR: &str = "-=-=-=-=-=-=-";
+
+#[derive(Debug, PartialEq)]
+enum ProcessingType {
+    Word2Vec
+}
 
 #[derive(Debug)]
 pub struct DataSet {
@@ -13,9 +18,15 @@ pub struct DataSet {
     name: String,
 }
 
+impl DataSet {
+    pub fn is_processed(&self) -> bool {
+        self.processed_data.is_some()
+    }
+}
+
 #[derive(Debug)]
 pub struct DataProcessingUI {
-    datasets: Vec<DataSet>,
+    pub datasets: Vec<DataSet>,
     shown_dataset_index: Option<usize>, 
 }
 
@@ -30,7 +41,6 @@ impl DataProcessingUI {
         for (index, dataset) in self.datasets.iter().enumerate() {
             let frame_style = Style::default();
             let is_current = Some(index) == self.shown_dataset_index;
-            let is_processed = dataset.processed_data.is_some();
             let stroke_color = if is_current {
                 Color32::DARK_GRAY
             }
@@ -46,7 +56,7 @@ impl DataProcessingUI {
                 .fill(Color32::LIGHT_GRAY)
                 .begin(ui);
             frame.content_ui.horizontal(|ui|{
-                if is_processed {
+                if dataset.is_processed() {
                     ui.add(
                         Image::new(include_image!("../resources/dataset_processed.svg"))
                             .rounding(5.0).fit_to_exact_size(Vec2 { x: 30.0, y: 30.0 })
@@ -80,12 +90,12 @@ impl DataProcessingUI {
         ui.painter().rect_filled(ui.max_rect(), Rounding::ZERO, Color32::WHITE);
         if let Some(ind) = self.shown_dataset_index {
             SidePanel::right("tooltip_data").resizable(false).show_inside(ui, |ui| {
-                let is_processed = self.datasets[ind].processed_data.is_some();
-                ui.text_edit_singleline(&mut self.datasets[ind].name);
+                let chosen_dataset = &mut self.datasets[ind];
+                ui.text_edit_singleline(&mut chosen_dataset.name);
                 
                 Grid::new("Parameters").show(ui, |ui| {
                     ui.label("Processing Type: ");
-                    if is_processed {
+                    if chosen_dataset.is_processed() {
                         ui.label("Word2Vec 100");
                     }
                     else {
@@ -93,6 +103,18 @@ impl DataProcessingUI {
                     }
                     ui.end_row();
                 });
+
+                let mut processing_type = ProcessingType::Word2Vec;
+                ComboBox::from_label("Type of text processing use")
+                .selected_text(format!("{:?}", processing_type))
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut processing_type, ProcessingType::Word2Vec, "Word2Vec");
+                });
+
+                if ui.button("Apply chosen processing").clicked() {
+                    // ToDo: Add the actual processing and maybe add processing types to dataset struct
+                    chosen_dataset.processed_data = Some(vec![]);
+                }
             });
         }
 

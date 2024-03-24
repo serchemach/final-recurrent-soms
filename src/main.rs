@@ -3,6 +3,8 @@ mod data_processing;
 mod maps;
 mod visualizations;
 
+use std::iter::Map;
+
 use data_processing::{*};
 use env_logger::fmt::style::Color;
 use maps::{*};
@@ -16,23 +18,27 @@ const VISUALIZATIONS_SAVE_PATH: &str = "./data/vz.sv";
 
 #[derive(Debug)]
 enum PaneType {
-    DataProcessing(DataProcessingUI),
-    Maps(MapsUI),
-    Visualizations(VisualizationsUI)
+    DataProcessing,
+    Maps,
+    Visualizations
 }
 
 struct Pane {
     p_type: PaneType,
 }
 
-struct TreeBehavior {}
+struct TreeBehavior {
+    data_processing_state: DataProcessingUI,
+    maps_state: MapsUI,
+    visualizations_state: VisualizationsUI,
+}
 
 impl egui_tiles::Behavior<Pane> for TreeBehavior {
     fn tab_title_for_pane(&mut self, pane: &Pane) -> egui::WidgetText {
         match pane.p_type {
-            PaneType::DataProcessing(_) => "Data Processing",
-            PaneType::Maps(_) => "Maps",
-            PaneType::Visualizations(_) => "Visualizations",
+            PaneType::DataProcessing => "Data Processing",
+            PaneType::Maps => "Maps",
+            PaneType::Visualizations => "Visualizations",
         }.into()
     }
 
@@ -44,9 +50,9 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
     ) -> egui_tiles::UiResponse {
 
         match &mut pane.p_type {
-            PaneType::DataProcessing(state) => state.show(ui),
-            PaneType::Maps(state) => state.show(ui),
-            PaneType::Visualizations(state) => state.show(ui),
+            PaneType::DataProcessing => self.data_processing_state.show(ui),
+            PaneType::Maps => self.maps_state.show(ui, &self.data_processing_state.datasets),
+            PaneType::Visualizations => self.visualizations_state.show(ui),
         }
 
         // You can make your pane draggable like so:
@@ -69,11 +75,15 @@ fn main() -> Result<(), eframe::Error> {
 
     let mut tree = create_tree();
 
+    let mut behavior = TreeBehavior {
+        maps_state: MapsUI::default(),
+        data_processing_state: DataProcessingUI::default(),
+        visualizations_state: VisualizationsUI::default(),
+    };
     eframe::run_simple_native("My egui App", options, move |ctx, _frame| {
         egui_extras::install_image_loaders(ctx);
-        
+
         egui::CentralPanel::default().show(ctx, |ui| {
-            let mut behavior = TreeBehavior {};
             tree.ui(&mut behavior, ui);
         });
     })
@@ -84,9 +94,9 @@ fn create_tree() -> egui_tiles::Tree<Pane> {
     let mut tiles = egui_tiles::Tiles::default();
 
     let mut tabs = vec![];
-    tabs.push(tiles.insert_pane(Pane { p_type: PaneType::DataProcessing(DataProcessingUI::default()) }));
-    tabs.push(tiles.insert_pane(Pane { p_type: PaneType::Maps(MapsUI::default()) }));
-    tabs.push(tiles.insert_pane(Pane { p_type: PaneType::Visualizations(VisualizationsUI::default()) }));
+    tabs.push(tiles.insert_pane(Pane { p_type: PaneType::DataProcessing }));
+    tabs.push(tiles.insert_pane(Pane { p_type: PaneType::Maps }));
+    tabs.push(tiles.insert_pane(Pane { p_type: PaneType::Visualizations }));
 
     let root = tiles.insert_tab_tile(tabs);
 
