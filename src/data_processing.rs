@@ -1,7 +1,8 @@
-use std::{io::Read, sync::{Arc, Mutex}, thread, time::Duration, vec};
+use std::{fs::File, io::{BufReader, Read}, sync::{Arc, Mutex}, thread, time::Duration, vec};
+use finalfusion::prelude::*;
 
 use egui::{include_image, CentralPanel, Color32, ComboBox, Frame, Grid, Image, Layout, Rounding, ScrollArea, Sense, SidePanel, Stroke, Style, Ui, Vec2};
-use ndarray::Array1;
+use ndarray::{concatenate, Array1, Axis};
 use rfd::FileDialog;
 
 const DATASET_SEPARATOR: &str = "-=-=-=-=-=-=-";
@@ -15,8 +16,47 @@ enum ProcessingType {
 // This finally makes sense
 pub fn process_dataset(dataset: Arc<Mutex<DataSet>>) {
     dataset.lock().unwrap().is_being_processed = true;
-    std::thread::sleep(Duration::from_millis(1000));
+
+    // Try to access stuff every frame or something
+    // maybe do a plain for loop and clone each element one at a time with lock
+    let mut reader =
+        BufReader::new(File::open("C:/All/glove-twitter-25/glove-twitter-25.txt").unwrap());
+    let embeddings = Embeddings::read_text_dims(&mut reader).unwrap();
+
+    let mut result = vec![];
+    let lines = dataset.lock().unwrap().raw_data.clone();
+    // std::thread::sleep(Duration::from_millis(1000));
+
+    for sample in lines {
+        let stripped_contents = sample
+            .to_lowercase()
+            .chars()
+            .filter(|c| c.is_alphanumeric() || c.is_whitespace())
+            .collect::<String>();
+        // println!("{}", &stripped_contents[0..209]);
+
+        let words: Vec<&str> = stripped_contents.split_whitespace().into_iter().collect();
+        // println!("words [{}, {}, {}]", words[0], words[1], words[2]);
+        if words.len() > 0 {
+            let vecs: Vec<_> = words
+                .iter()
+                .filter_map(|word| embeddings.embedding(word))
+                .collect();
+            // println!("vect [{}, {}, {}]", vecs[0], vecs[1], vecs[2]);
+
+            let view_vec = vecs.iter().map(|a| a.view()).collect::<Vec<_>>();
+            // println!("{:?}", view_vec[0].shape());
+            let final_vec = concatenate(Axis(0), view_vec.as_slice())
+                .unwrap()
+                .map(|x| *x as f32);
+            // println!("{final_vec}");
+
+            result.push(final_vec);
+        }
+    }
+
     dataset.lock().unwrap().is_being_processed = false;
+    dataset.lock().unwrap().processed_data = Some(result);
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -136,7 +176,6 @@ impl DataProcessingUI {
                     thread::spawn(|| {
                         process_dataset(cloned_dataset);
                     });
-                    chosen_dataset.processed_data = Some(vec![]);
                 }
 
                 ui.separator();
