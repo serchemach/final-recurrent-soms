@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use egui::{include_image, Color32, ComboBox, DragValue, Frame, Grid, Image, Rounding, ScrollArea, Sense, SidePanel, Stroke, Style, Ui, Vec2};
 
 use crate::DataSet;
@@ -94,7 +96,7 @@ impl MapsUI {
         }
     }
 
-    pub fn show(&mut self, ui: &mut Ui, datasets: &Vec<DataSet>) {
+    pub fn show(&mut self, ui: &mut Ui, datasets: &Vec<Arc<Mutex<DataSet>>>) {
         ui.painter().rect_filled(ui.max_rect(), Rounding::ZERO, Color32::WHITE);
         let modal = Modal::new(ui.ctx(), "map modal");
 

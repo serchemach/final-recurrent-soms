@@ -76,13 +76,12 @@ impl VisualizationsUI {
 
         SidePanel::right("visualization_preview")
         .show_inside(ui, |ui| {
-            // ui.image(include_image!("../resources/sample_image.png"));
             let available_size = ui.available_size();
             let (response, painter) = ui.allocate_painter(
                 egui::Vec2::new(
                     available_size.x - 10.0,
                     available_size.x - 10.0,
-                ), // Allocate a space for the container
+                ),
                 egui::Sense::hover(),
             );
             let available_rect = response.rect;
@@ -95,7 +94,6 @@ impl VisualizationsUI {
 
             for i in 0..n {
                 for j in 0..m {
-                    // rects.push(Rect::)
                     let i = i as f32;
                     let j = j as f32;
                     let cur_rect = Rect {

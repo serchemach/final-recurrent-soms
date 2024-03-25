@@ -1,6 +1,6 @@
-use std::{io::Read, vec};
+use std::{io::Read, sync::{Arc, Mutex}, thread, time::Duration, vec};
 
-use egui::{include_image, CentralPanel, Color32, ComboBox, Frame, Grid, Image, Rounding, ScrollArea, Sense, SidePanel, Stroke, Style, Ui, Vec2};
+use egui::{include_image, CentralPanel, Color32, ComboBox, Frame, Grid, Image, Layout, Rounding, ScrollArea, Sense, SidePanel, Stroke, Style, Ui, Vec2};
 use ndarray::Array1;
 use rfd::FileDialog;
 
@@ -11,11 +11,20 @@ enum ProcessingType {
     Word2Vec
 }
 
+// Mutex give interior mutability!
+// This finally makes sense
+pub fn process_dataset(dataset: Arc<Mutex<DataSet>>) {
+    dataset.lock().unwrap().is_being_processed = true;
+    std::thread::sleep(Duration::from_millis(1000));
+    dataset.lock().unwrap().is_being_processed = false;
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct DataSet {
     raw_data: Vec<String>,
     processed_data: Option<Vec<Array1<f32>>>,
     pub name: String,
+    is_being_processed: bool,
 }
 
 impl DataSet {
@@ -26,7 +35,7 @@ impl DataSet {
 
 #[derive(Debug)]
 pub struct DataProcessingUI {
-    pub datasets: Vec<DataSet>,
+    pub datasets: Vec<Arc<Mutex<DataSet>>>,
     shown_dataset_index: Option<usize>, 
 }
 
@@ -39,6 +48,8 @@ impl Default for DataProcessingUI {
 impl DataProcessingUI {
     fn dataset_list(&mut self, ui: &mut Ui) {
         for (index, dataset) in self.datasets.iter().enumerate() {
+            let dataset = dataset.lock().unwrap();
+
             let frame_style = Style::default();
             let is_current = Some(index) == self.shown_dataset_index;
             let stroke_color = if is_current {
@@ -69,8 +80,14 @@ impl DataProcessingUI {
                     );
                 }
 
-                ui.centered_and_justified(|ui| {
+                ui.horizontal_centered(|ui| {
                     ui.label(dataset.name.as_str());
+                    
+                    ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui|{
+                        if dataset.is_being_processed {
+                            ui.spinner();
+                        }
+                    });
                 });
             });
 
@@ -92,7 +109,7 @@ impl DataProcessingUI {
             SidePanel::right("tooltip_data")
             .resizable(true)
             .show_inside(ui, |ui| {
-                let chosen_dataset = &mut self.datasets[ind];
+                let chosen_dataset = &mut self.datasets[ind].lock().unwrap();
                 ui.text_edit_singleline(&mut chosen_dataset.name);
                 
                 Grid::new("Parameters").show(ui, |ui| {
@@ -115,6 +132,10 @@ impl DataProcessingUI {
 
                 if ui.button("Apply chosen processing").clicked() {
                     // ToDo: Add the actual processing and maybe add processing types to dataset struct
+                    let cloned_dataset = self.datasets[ind].clone();
+                    thread::spawn(|| {
+                        process_dataset(cloned_dataset);
+                    });
                     chosen_dataset.processed_data = Some(vec![]);
                 }
 
@@ -143,11 +164,12 @@ impl DataProcessingUI {
                             let res = open_file.read_to_string(&mut file_contents);
                             if res.is_ok() {
                                 let raw_data = file_contents.split(DATASET_SEPARATOR).map(|val| val.to_string()).collect();
-                                self.datasets.push(DataSet {
+                                self.datasets.push(Arc::new(Mutex::new(DataSet {
                                     raw_data,
                                     processed_data: None,
                                     name: path.file_name().unwrap().to_os_string().into_string().unwrap(),
-                                });
+                                    is_being_processed: false,
+                                })));
                                 self.shown_dataset_index = Some(self.datasets.len() - 1);
                             }
                         }
