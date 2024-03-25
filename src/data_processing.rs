@@ -17,15 +17,13 @@ enum ProcessingType {
 pub fn process_dataset(dataset: Arc<Mutex<DataSet>>) {
     dataset.lock().unwrap().is_being_processed = true;
 
-    // Try to access stuff every frame or something
-    // maybe do a plain for loop and clone each element one at a time with lock
+    // ToDo: Make this shared, maybe store in Data Processing UI struct?
     let mut reader =
         BufReader::new(File::open("C:/All/glove-twitter-25/glove-twitter-25.txt").unwrap());
     let embeddings = Embeddings::read_text_dims(&mut reader).unwrap();
 
     let mut result = vec![];
     let lines = dataset.lock().unwrap().raw_data.clone();
-    // std::thread::sleep(Duration::from_millis(1000));
 
     for sample in lines {
         let stripped_contents = sample
@@ -33,23 +31,18 @@ pub fn process_dataset(dataset: Arc<Mutex<DataSet>>) {
             .chars()
             .filter(|c| c.is_alphanumeric() || c.is_whitespace())
             .collect::<String>();
-        // println!("{}", &stripped_contents[0..209]);
 
         let words: Vec<&str> = stripped_contents.split_whitespace().into_iter().collect();
-        // println!("words [{}, {}, {}]", words[0], words[1], words[2]);
         if words.len() > 0 {
             let vecs: Vec<_> = words
                 .iter()
                 .filter_map(|word| embeddings.embedding(word))
                 .collect();
-            // println!("vect [{}, {}, {}]", vecs[0], vecs[1], vecs[2]);
 
             let view_vec = vecs.iter().map(|a| a.view()).collect::<Vec<_>>();
-            // println!("{:?}", view_vec[0].shape());
             let final_vec = concatenate(Axis(0), view_vec.as_slice())
                 .unwrap()
                 .map(|x| *x as f32);
-            // println!("{final_vec}");
 
             result.push(final_vec);
         }
