@@ -127,9 +127,7 @@ impl DataProcessingUI {
                 if self.datasets.len() == 0 {
                     ui.label("No datasets loaded");
                 }
-                else {
-                    self.dataset_list(ui);
-                }
+                self.dataset_list(ui);
         
                 if ui.button("Load a new dataset from file").clicked() {
                     let files = FileDialog::new()
