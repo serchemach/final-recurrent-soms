@@ -5,7 +5,8 @@ use egui::{include_image, CentralPanel, Color32, ComboBox, Frame, Grid, Image, L
 use ndarray::{concatenate, Array1, Axis};
 use rfd::FileDialog;
 
-const DATASET_SEPARATOR: &str = "-=-=-=-=-=-=-";
+// const DATASET_SEPARATOR: &str = "-=-=-=-=-=-=-";
+const DATASET_SEPARATOR: &str = "\n";
 
 #[derive(Debug, PartialEq)]
 enum ProcessingType {
@@ -18,6 +19,8 @@ pub fn process_dataset(dataset: Arc<Mutex<DataSet>>) {
     dataset.lock().unwrap().is_being_processed = true;
 
     // ToDo: Make this shared, maybe store in Data Processing UI struct?
+    // Also, maybe use some other method for representing text
+    // I kinda don't like how you need to distribute weights with the app
     let mut reader =
         BufReader::new(File::open("C:/All/glove-twitter-25/glove-twitter-25.txt").unwrap());
     let embeddings = Embeddings::read_text_dims(&mut reader).unwrap();
@@ -49,6 +52,7 @@ pub fn process_dataset(dataset: Arc<Mutex<DataSet>>) {
     }
 
     dataset.lock().unwrap().is_being_processed = false;
+    println!("{result:?}");
     dataset.lock().unwrap().processed_data = Some(result);
 }
 
