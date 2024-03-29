@@ -59,7 +59,7 @@ pub fn process_dataset(dataset: Arc<Mutex<DataSet>>) {
 #[derive(Debug, PartialEq, Clone)]
 pub struct DataSet {
     raw_data: Vec<String>,
-    processed_data: Option<Vec<Array1<f32>>>,
+    pub processed_data: Option<Vec<Array1<f32>>>,
     pub name: String,
     is_being_processed: bool,
 }

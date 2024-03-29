@@ -174,8 +174,30 @@ impl MapsUI {
 
                 if ui.button("Fit the map").clicked() {
                     // ToDo: the actual training
-                    // chosen_map.map_weights = Some()
-                    
+                    if let Some(dataset_index) = self.current_dataset_index {
+                        let weights = Arc::new(Mutex::new(MSOM::new(chosen_map.n, chosen_map.m, chosen_map.map_input_size, 
+                            chosen_map.a, chosen_map.b, chosen_map.gamma)));
+    
+                        let cloned_weights = Arc::clone(&weights);
+                        chosen_map.map_weights = Some(weights);
+
+                        let train_iterations = chosen_map.train_iterations;
+                        let learning_rate_base = chosen_map.learning_rate_base;
+                        let gauss_width_squared_base = chosen_map.gauss_width_squared_base;
+                        let time_constant = chosen_map.time_constant;
+
+                        let cloned_dataset = datasets[dataset_index].lock().unwrap().processed_data.clone().unwrap();
+    
+                        let handle = std::thread::spawn(move || {
+                            cloned_weights.lock().unwrap().fit(&cloned_dataset, 
+                            train_iterations, learning_rate_base, 
+                            gauss_width_squared_base, time_constant);
+
+                            println!("TRAINED!");
+                        });
+
+                        
+                    }
                 }
 
                 ui.separator();
