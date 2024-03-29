@@ -5,15 +5,15 @@ use egui::{include_image, CentralPanel, Color32, ComboBox, Frame, Grid, Image, L
 use ndarray::{concatenate, Array1, Axis};
 use rfd::FileDialog;
 
-// const DATASET_SEPARATOR: &str = "-=-=-=-=-=-=-";
-const DATASET_SEPARATOR: &str = "\n";
+const DATASET_SEPARATOR: &str = "-=-=-=-=-=-=-";
+// const DATASET_SEPARATOR: &str = "\n";
 
 #[derive(Debug, PartialEq)]
 enum ProcessingType {
     Word2Vec
 }
 
-// Mutex give interior mutability!
+// Mutex gives interior mutability!
 // This finally makes sense
 pub fn process_dataset(dataset: Arc<Mutex<DataSet>>) {
     dataset.lock().unwrap().is_being_processed = true;

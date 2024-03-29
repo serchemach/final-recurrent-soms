@@ -2,6 +2,7 @@
 mod data_processing;
 mod maps;
 mod visualizations;
+mod msom;
 
 use std::iter::Map;
 

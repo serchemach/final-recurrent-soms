@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use egui::{include_image, Color32, ComboBox, DragValue, Frame, Grid, Image, Rounding, ScrollArea, Sense, SidePanel, Stroke, Style, Ui, Vec2};
 
-use crate::DataSet;
+use crate::{msom::MSOM, DataSet};
 use egui_modal::{Modal};
 
 #[derive(Debug, Clone)]
@@ -19,6 +19,9 @@ pub struct SOMParams {
     learning_rate_base: f32,
     gauss_width_squared_base: f32,
     time_constant: f32,
+
+    map_weights: Option<Arc<Mutex<MSOM>>>,
+    current_progress: Option<f32>,
 }
 
 impl Default for SOMParams {
@@ -37,20 +40,25 @@ impl Default for SOMParams {
             learning_rate_base: 0.1,
             gauss_width_squared_base: 10000.0,
             time_constant: 200.0,
+
+            map_weights: None,
+            current_progress: None,
         }
     }
 }
 
 #[derive(Debug)]
 pub struct MapsUI {
-    current_params: SOMParams,
     maps: Vec<SOMParams>,
+    
+    current_params: SOMParams,
     shown_map_index: Option<usize>,
+    current_dataset_index: Option<usize>,
 }
 
 impl Default for MapsUI {
     fn default() -> Self {
-        Self { current_params: SOMParams::default(), maps: vec![], shown_map_index: None }
+        Self { current_params: SOMParams::default(), maps: vec![], shown_map_index: None, current_dataset_index: None }
     }
 }
 
@@ -105,47 +113,68 @@ impl MapsUI {
             .show_inside(ui, |ui| {
                 let chosen_map = &mut self.maps[ind];
                 ui.text_edit_singleline(&mut chosen_map.name);
+                if let Some(dataset_index) = self.current_dataset_index {
+                    if dataset_index >= datasets.len() || !datasets[dataset_index].lock().unwrap().is_processed() {
+                        self.current_dataset_index = None;
+                    }
+                }
                 
                 Grid::new("Parameters").show(ui, |ui| {
                     ui.label("a:");
-                    ui.add(DragValue::new(&mut self.current_params.a));
+                    ui.add(DragValue::new(&mut chosen_map.a));
                     ui.end_row();
 
                     ui.label("b:");
-                    ui.add(DragValue::new(&mut self.current_params.b));
+                    ui.add(DragValue::new(&mut chosen_map.b));
                     ui.end_row();
 
                     ui.label("gamma:");
-                    ui.add(DragValue::new(&mut self.current_params.gamma));
+                    ui.add(DragValue::new(&mut chosen_map.gamma));
                     ui.end_row();
 
                     ui.label("train_iterations:");
-                    ui.add(DragValue::new(&mut self.current_params.train_iterations));
+                    ui.add(DragValue::new(&mut chosen_map.train_iterations));
                     ui.end_row();
 
                     ui.label("learning_rate_base:");
-                    ui.add(DragValue::new(&mut self.current_params.learning_rate_base));
+                    ui.add(DragValue::new(&mut chosen_map.learning_rate_base));
                     ui.end_row();
 
                     ui.label("gauss_width_squared_base:");
-                    ui.add(DragValue::new(&mut self.current_params.gauss_width_squared_base));
+                    ui.add(DragValue::new(&mut chosen_map.gauss_width_squared_base));
                     ui.end_row();
 
                     ui.label("time_constant:");
-                    ui.add(DragValue::new(&mut self.current_params.time_constant));
+                    ui.add(DragValue::new(&mut chosen_map.time_constant));
                     ui.end_row();
 
                     ui.label("Dataset to fit:");
-                    ComboBox::from_id_source("Dataset selection").show_ui(ui, |ui| {
+                    let mut cur_dataset_label = "".to_owned();
+                    if let Some(dataset_index) = self.current_dataset_index {
+                        cur_dataset_label = datasets[dataset_index].lock().unwrap().name.clone();
+                    }
+
+                    ComboBox::from_id_source("Dataset selection")
+                    .selected_text(cur_dataset_label)
+                    .show_ui(ui, |ui| {
                         // ToDo: decide how to pass the dataset to this function
                         // Maybe a Box or Cell? It's kinda infuriating to work with references stored in structs
                         // Or I could switch to Rc<RefCell>
+
+                        for (index, dataset) in datasets.iter().enumerate() {
+                            let locked_dataset = dataset.lock().unwrap();
+                            if locked_dataset.is_processed() {
+                                ui.selectable_value(&mut self.current_dataset_index, 
+                                    Some(index), locked_dataset.name.as_str());
+                            }
+                        }
                     });
                     ui.end_row();
                 });
 
                 if ui.button("Fit the map").clicked() {
                     // ToDo: the actual training
+                    // chosen_map.map_weights = Some()
                     
                 }
 
