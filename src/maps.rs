@@ -189,6 +189,8 @@ impl MapsUI {
                         let cloned_dataset = datasets[dataset_index].lock().unwrap().processed_data.clone().unwrap();
     
                         let handle = std::thread::spawn(move || {
+
+                            // ToDo: Add progress tracking and maybe thread termination
                             cloned_weights.lock().unwrap().fit(&cloned_dataset, 
                             train_iterations, learning_rate_base, 
                             gauss_width_squared_base, time_constant);
