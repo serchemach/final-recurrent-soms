@@ -1,27 +1,27 @@
 use std::sync::{Arc, Mutex};
 
-use egui::{include_image, Color32, ComboBox, DragValue, Frame, Grid, Image, Rounding, ScrollArea, Sense, SidePanel, Stroke, Style, Ui, Vec2};
+use egui::{include_image, Color32, ComboBox, DragValue, Frame, Grid, Image, Layout, Rounding, ScrollArea, Sense, SidePanel, Stroke, Style, Ui, Vec2};
 
 use crate::{msom::MSOM, DataSet};
 use egui_modal::{Modal};
 
 #[derive(Debug, Clone)]
 pub struct SOMParams {
-    name: String,
-    n: usize,
-    m: usize,
-    map_input_size: usize,
-    a: f32,
-    b: f32,
-    gamma: f32,
+    pub name: String,
+    pub n: usize,
+    pub m: usize,
+    pub map_input_size: usize,
+    pub a: f32,
+    pub b: f32,
+    pub gamma: f32,
 
-    train_iterations: usize,
-    learning_rate_base: f32,
-    gauss_width_squared_base: f32,
-    time_constant: f32,
+    pub train_iterations: usize,
+    pub learning_rate_base: f32,
+    pub gauss_width_squared_base: f32,
+    pub time_constant: f32,
 
-    map_weights: Option<Arc<Mutex<MSOM>>>,
-    current_progress: Option<f32>,
+    pub map_weights: Option<Arc<Mutex<MSOM>>>,
+    pub is_training: Arc<Mutex<bool>>,
 }
 
 impl Default for SOMParams {
@@ -42,14 +42,14 @@ impl Default for SOMParams {
             time_constant: 200.0,
 
             map_weights: None,
-            current_progress: None,
+            is_training: Arc::new(Mutex::new(false)),
         }
     }
 }
 
 #[derive(Debug)]
 pub struct MapsUI {
-    maps: Vec<SOMParams>,
+    pub maps: Vec<SOMParams>,
     
     current_params: SOMParams,
     shown_map_index: Option<usize>,
@@ -87,8 +87,14 @@ impl MapsUI {
                     .rounding(5.0).fit_to_exact_size(Vec2 { x: 30.0, y: 30.0 })
                 );
 
-                ui.centered_and_justified(|ui| {
+                ui.horizontal_centered(|ui| {
                     ui.label(map.name.as_str());
+                    
+                    ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui|{
+                        if *map.is_training.lock().unwrap() {
+                            ui.spinner();
+                        }
+                    });
                 });
             });
 
@@ -175,9 +181,17 @@ impl MapsUI {
                 if ui.button("Fit the map").clicked() {
                     // ToDo: the actual training
                     if let Some(dataset_index) = self.current_dataset_index {
-                        let weights = Arc::new(Mutex::new(MSOM::new(chosen_map.n, chosen_map.m, chosen_map.map_input_size, 
-                            chosen_map.a, chosen_map.b, chosen_map.gamma)));
-    
+                        *chosen_map.is_training.lock().unwrap() = true;
+
+                        let weights;
+                        if let None = chosen_map.map_weights {
+                            weights = Arc::new(Mutex::new(MSOM::new(chosen_map.n, chosen_map.m, chosen_map.map_input_size, 
+                                chosen_map.a, chosen_map.b, chosen_map.gamma)));
+                        }
+                        else {
+                            weights = Arc::clone(chosen_map.map_weights.as_ref().unwrap());
+                        }
+                            
                         let cloned_weights = Arc::clone(&weights);
                         chosen_map.map_weights = Some(weights);
 
@@ -187,7 +201,8 @@ impl MapsUI {
                         let time_constant = chosen_map.time_constant;
 
                         let cloned_dataset = datasets[dataset_index].lock().unwrap().processed_data.clone().unwrap();
-    
+                        let cloned_status = chosen_map.is_training.clone();
+
                         let handle = std::thread::spawn(move || {
 
                             // ToDo: Add progress tracking and maybe thread termination
@@ -196,9 +211,8 @@ impl MapsUI {
                             gauss_width_squared_base, time_constant);
 
                             println!("TRAINED!");
+                            *cloned_status.lock().unwrap() = false;
                         });
-
-                        
                     }
                 }
 
@@ -265,6 +279,7 @@ impl MapsUI {
                         // ToDo: Implement Map creation
                         if modal.button(ui, "Create").clicked() {
                             self.maps.push(self.current_params.clone());
+                            self.shown_map_index = Some(self.maps.len() - 1)
                         }
                     }); 
                 });

@@ -51,14 +51,14 @@ pub fn get_vec_std(samples: &Vec<ArrayView1<f32>>) -> f32 {
     diff_sq_sum.sum().sqrt() / (samples.len() as f32)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MSOM {
-    n: usize,
-    m: usize,
-    map_input_size: usize,
-    a: f32,
-    b: f32,
-    gamma: f32,
+    pub n: usize,
+    pub m: usize,
+    pub map_input_size: usize,
+    pub a: f32,
+    pub b: f32,
+    pub gamma: f32,
 
     som: ArrayBase<OwnedRepr<f32>, Dim<[usize; 3]>>,
     context: ArrayBase<OwnedRepr<f32>, Dim<[usize; 3]>>,

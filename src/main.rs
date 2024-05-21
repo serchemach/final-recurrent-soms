@@ -54,7 +54,7 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
         match &mut pane.p_type {
             PaneType::DataProcessing => self.data_processing_state.show(ui),
             PaneType::Maps => self.maps_state.show(ui, &self.data_processing_state.datasets),
-            PaneType::Visualizations => self.visualizations_state.show(ui),
+            PaneType::Visualizations => self.visualizations_state.show(ui, self.maps_state.maps.clone(), &self.data_processing_state.datasets),
         }
 
         // You can make your pane draggable like so:
@@ -82,7 +82,7 @@ fn main() -> Result<(), eframe::Error> {
         data_processing_state: DataProcessingUI::default(),
         visualizations_state: VisualizationsUI::default(),
     };
-    eframe::run_simple_native("My egui App", options, move |ctx, _frame| {
+    eframe::run_simple_native("SOMs with recurrence", options, move |ctx, _frame| {
         egui_extras::install_image_loaders(ctx);
 
         egui::CentralPanel::default().show(ctx, |ui| {
