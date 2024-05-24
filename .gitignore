@@ -17,3 +17,6 @@ Cargo.lock
 # Added by cargo
 
 /target
+
+
+resources/glove-twitter-25.txt

@@ -22,7 +22,7 @@ pub fn process_dataset(dataset: Arc<Mutex<DataSet>>) {
     // Also, maybe use some other method for representing text
     // I kinda don't like how you need to distribute weights with the app
     let mut reader =
-        BufReader::new(File::open("C:/All/glove-twitter-25/glove-twitter-25.txt").unwrap());
+        BufReader::new(File::open("./resources/glove-twitter-25.txt").unwrap());
     let embeddings = Embeddings::read_text_dims(&mut reader).unwrap();
 
     let mut result = vec![];
