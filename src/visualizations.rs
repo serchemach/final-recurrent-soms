@@ -24,7 +24,7 @@ pub fn calculate_visualization_data(visualization: Arc<Mutex<Visualization>>, ma
                 word_occurences[prediction.0][prediction.1].push(dataset.raw_data[index][0..TEXT_PREVIEW_CUTOFF].to_string() + "...");
             }
             else {
-                word_occurences[prediction.0][prediction.1].push(dataset.raw_data[index][0..TEXT_PREVIEW_CUTOFF].to_string());
+                word_occurences[prediction.0][prediction.1].push(dataset.raw_data[index][0..dataset.raw_data[index].len()].to_string());
             }
             println!("{index}");
         }
