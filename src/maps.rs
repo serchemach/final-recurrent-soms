@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use egui::{include_image, Color32, ComboBox, DragValue, Frame, Grid, Image, Layout, Rounding, ScrollArea, Sense, SidePanel, Stroke, Style, Ui, Vec2};
+use ndarray_ndimage::label;
 
 use crate::{msom::MSOM, DataSet};
 use egui_modal::{Modal};
@@ -102,6 +103,12 @@ impl MapsUI {
             if response.clicked() {
                 self.shown_map_index = Some(index);
             }
+
+            response.context_menu(|ui| {
+                if ui.button("Save to file").clicked() {
+                    
+                }
+            });
 
             if response.hovered() {
                 frame.frame.fill = Color32::WHITE;
