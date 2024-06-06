@@ -1,4 +1,4 @@
-use std::{clone, collections::HashSet, fs::File, io::{BufReader, Read}, sync::{Arc, Mutex}, thread, time::Duration, vec};
+use std::{clone, collections::HashSet, fs::File, io::{BufReader, Read}, path::PathBuf, sync::{Arc, Mutex}, thread, time::Duration, vec};
 use finalfusion::prelude::*;
 
 use egui::{include_image, CentralPanel, Color32, ComboBox, DragValue, Frame, Grid, Image, Layout, Rounding, ScrollArea, Sense, SidePanel, Stroke, Style, Ui, Vec2};
@@ -7,6 +7,7 @@ use rfd::FileDialog;
 
 use tqdm::tqdm;
 use crate::{msom::MSOM, SOMParams};
+use serde::{Serialize, Deserialize};
 
 const DATASET_SEPARATOR: &str = "-=-=-=-=-=-=-";
 // const DATASET_SEPARATOR: &str = "\n";
@@ -144,7 +145,7 @@ pub fn process_dataset(dataset: Arc<Mutex<DataSet>>, processing_type: Processing
     dataset.lock().unwrap().processed_data = Some(result);
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct DataSet {
     pub raw_data: Vec<String>,
     pub processed_data: Option<Vec<Array1<f32>>>,
@@ -155,6 +156,39 @@ pub struct DataSet {
 impl DataSet {
     pub fn is_processed(&self) -> bool {
         self.processed_data.is_some()
+    }
+
+    fn from_file(filename: &PathBuf) -> Result<Self, &str> {
+        let writer = File::options().read(true).open(filename);
+        if writer.is_err() {
+            return Err("Error while opening the file");
+        }
+
+        let res: Result<Self, serde_json::Error> = serde_json::from_reader(writer.unwrap());
+
+        if res.is_err() {
+            Err("Error parsing the dataset")
+        }
+        else {
+            Ok(res.unwrap())
+        }
+    }
+
+    fn to_file(&self, filename: &PathBuf) -> Result<(), &str> {
+        // let json = serde_json::to_vec(&self.map_weights)?;
+        let writer = File::options().write(true).create(true).open(filename);
+        if writer.is_err() {
+            return Err("Error while opening the file");
+        }
+
+        let res = serde_json::to_writer_pretty(writer.unwrap(), self);
+
+        if res.is_err() {
+            Err("Error while serializing the dataset")
+        }
+        else {
+            Ok(())
+        }
     }
 }
 
@@ -223,6 +257,24 @@ impl DataProcessingUI {
             if response.clicked() {
                 self.shown_dataset_index = Some(index);
             }
+
+            response.context_menu(|ui| {
+                if ui.button("Save to file").clicked() {
+                    let files = FileDialog::new()
+                        .add_filter("Serde json file with dataset structure", &["json_set"])
+                        .set_directory(".")
+                        .save_file();
+                    
+                    if let Some(path) = files {
+                        let res = dataset.to_file(&path);
+                        if res.is_err() {
+                            println!("{}", res.err().unwrap());
+                        }
+                    }
+
+                    ui.close_menu();
+                }
+            });
 
             if response.hovered() {
                 frame.frame.fill = Color32::WHITE;
@@ -320,7 +372,7 @@ impl DataProcessingUI {
                 }
                 self.dataset_list(ui);
         
-                if ui.button("Load a new dataset from file").clicked() {
+                if ui.button("Create a new dataset from file").clicked() {
                     let files = FileDialog::new()
                         .add_filter("text", &["txt", "rs"])
                         .add_filter("rust", &["rs", "toml"])
@@ -328,7 +380,6 @@ impl DataProcessingUI {
                         .pick_file();
 
                     if let Some(path) = files {
-                        // ui.ctx().set_cursor_icon(egui::CursorIcon::Wait);
                         if let Ok(mut open_file) = std::fs::File::open(&path) {
                             let mut file_contents = String::new();
                             let res = open_file.read_to_string(&mut file_contents);
@@ -343,9 +394,27 @@ impl DataProcessingUI {
                                 self.shown_dataset_index = Some(self.datasets.len() - 1);
                             }
                         }
-                        // ui.ctx().set_cursor_icon(egui::CursorIcon::Default);
                     }
 
+                }
+
+                if ui.button("Load a processed dataset from file").clicked() {
+                    self.current_params = SOMParams::default();
+
+                    let files = FileDialog::new()
+                            .add_filter("Serde json file with dataset structure", &["json_set"])
+                            .set_directory(".")
+                            .pick_file();
+                        
+                    if let Some(path) = files {
+                        let res = DataSet::from_file(&path);
+                        if res.is_err() {
+                            println!("{}", res.err().unwrap());
+                        }
+                        else {
+                            self.datasets.push(Arc::new(Mutex::new(res.unwrap())));
+                        }
+                    }
                 }
             });
         });

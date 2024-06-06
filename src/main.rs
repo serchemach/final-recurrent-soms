@@ -50,7 +50,6 @@ impl egui_tiles::Behavior<Pane> for TreeBehavior {
         _tile_id: egui_tiles::TileId,
         pane: &mut Pane,
     ) -> egui_tiles::UiResponse {
-        
 
         match &mut pane.p_type {
             PaneType::DataProcessing => self.data_processing_state.show(ui),

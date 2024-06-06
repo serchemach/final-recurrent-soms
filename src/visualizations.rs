@@ -24,13 +24,8 @@ pub fn calculate_visualization_data(visualization: Arc<Mutex<Visualization>>, ma
             let prediction = map.evaluate(sample.view());
             vector_occurences[prediction.0][prediction.1].push(sample.view());
             
-            let string: String = dataset.raw_data[index].chars().take(TEXT_PREVIEW_CUTOFF).collect();
-            if dataset.raw_data[index].len() > TEXT_PREVIEW_CUTOFF {
-                word_occurences[prediction.0][prediction.1].push(string + "...");
-            }
-            else {
-                word_occurences[prediction.0][prediction.1].push(string);
-            }
+            word_occurences[prediction.0][prediction.1].push(dataset.raw_data[index].replace("\n", " "));
+
             // println!("{index}");
         }
 
@@ -249,7 +244,16 @@ impl VisualizationsUI {
                                 rects.push(Shape::Rect(RectShape::new(cur_rect, Rounding::ZERO, Color32::DARK_GREEN, Stroke::new(1.0, Color32::BLACK))));
                             }
                             else {
-                                rects.push(Shape::Rect(RectShape::new(cur_rect, Rounding::ZERO, Color32::BLUE.gamma_multiply(brightness[i][j] / max_val), Stroke::new(1.0, Color32::BLACK))));
+                                if brightness[i][j] == 0.0 {
+                                    rects.push(Shape::Rect(RectShape::new(cur_rect, Rounding::ZERO, 
+                                        Color32::GRAY, 
+                                        Stroke::new(1.0, Color32::BLACK))));
+                                }
+                                else {
+                                    rects.push(Shape::Rect(RectShape::new(cur_rect, Rounding::ZERO, 
+                                        Color32::BLUE.gamma_multiply(brightness[i][j] / max_val), 
+                                        Stroke::new(1.0, Color32::BLACK))));
+                                }
                             }
 
                         }
@@ -262,10 +266,12 @@ impl VisualizationsUI {
                     else {
                         ui.label(format!("{} Texts in chosen cluster: ", lines_to_display.len()));
                         for line in lines_to_display {
-                            let response = ui.add(Label::new(line).truncate(true));
-                            if response.hovered() {
-                                
-                            }
+                            // println!("{:?}, {:?}", ui.available_size(), available_size);
+                            
+                            let response = ui.add(Label::new(&line).truncate(true));
+                            // response.on_hover_text(&line); 
+                            // println!("{:?}", response.rect);
+                            
                         }
                     }
 
