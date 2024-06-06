@@ -8,6 +8,7 @@ use std::cmp;
 use std::collections::VecDeque;
 use std::fs::File;
 use tqdm::tqdm;
+use serde::{Serialize, Deserialize};
 
 pub fn get_vec_median(samples: &Vec<ArrayView1<f32>>) -> Array1<f32> {
     let mut cur_median = Array1::zeros(0);
@@ -51,7 +52,7 @@ pub fn get_vec_std(samples: &Vec<ArrayView1<f32>>) -> f32 {
     diff_sq_sum.sum().sqrt() / (samples.len() as f32)
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MSOM {
     pub n: usize,
     pub m: usize,
@@ -80,7 +81,7 @@ impl MSOM {
 
     pub fn fit(
         &mut self,
-        dataset: &Vec<ArrayBase<ndarray::OwnedRepr<f32>, Dim<[usize; 1]>>>,
+        dataset: &Vec<ArrayView1<f32>>,
         train_iterations: usize,
         learning_rate_base: f32,
         gauss_width_squared_base: f32,

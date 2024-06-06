@@ -1,8 +1,9 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
+// #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 mod data_processing;
 mod maps;
 mod visualizations;
 mod msom;
+mod som;
 
 use std::iter::Map;
 
@@ -71,7 +72,7 @@ fn main() -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
 
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([520.0, 240.0]),
+        viewport: egui::ViewportBuilder::default().with_inner_size([520.0, 440.0]),
         ..Default::default()
     };
 

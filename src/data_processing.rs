@@ -1,26 +1,98 @@
-use std::{fs::File, io::{BufReader, Read}, sync::{Arc, Mutex}, thread, time::Duration, vec};
+use std::{clone, collections::HashSet, fs::File, io::{BufReader, Read}, sync::{Arc, Mutex}, thread, time::Duration, vec};
 use finalfusion::prelude::*;
 
-use egui::{include_image, CentralPanel, Color32, ComboBox, Frame, Grid, Image, Layout, Rounding, ScrollArea, Sense, SidePanel, Stroke, Style, Ui, Vec2};
+use egui::{include_image, CentralPanel, Color32, ComboBox, DragValue, Frame, Grid, Image, Layout, Rounding, ScrollArea, Sense, SidePanel, Stroke, Style, Ui, Vec2};
 use ndarray::{concatenate, Array1, Axis};
 use rfd::FileDialog;
+
+use tqdm::tqdm;
+use crate::{msom::MSOM, SOMParams};
 
 const DATASET_SEPARATOR: &str = "-=-=-=-=-=-=-";
 // const DATASET_SEPARATOR: &str = "\n";
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 enum ProcessingType {
-    Word2Vec
+    Word2Vec,
+    DatasetContext
 }
 
-// Mutex gives interior mutability!
-// This finally makes sense
-pub fn process_dataset(dataset: Arc<Mutex<DataSet>>) {
-    dataset.lock().unwrap().is_being_processed = true;
+fn process_word2vec(dataset: Arc<Mutex<DataSet>>, params: SOMParams) -> Vec<Array1<f32>> {
+    // let n = 10;
+    // let m = 10;
+    // let map_input_size = 25;
+    // let a = 1.0; 
+    // let b = 1.0;
+    // let gamma = 0.5;
+    // let train_iterations = 200; 
+    // let learning_rate_base = 0.1; 
+    // let gauss_width_squared_base = 10000.0; 
+    // let time_constant = 200.0;
 
-    // ToDo: Make this shared, maybe store in Data Processing UI struct?
-    // Also, maybe use some other method for representing text
-    // I kinda don't like how you need to distribute weights with the app
+    let mut reader =
+        BufReader::new(File::open("./resources/glove-twitter-25.txt").unwrap());
+    let embeddings = Embeddings::read_text_dims(&mut reader).unwrap();
+
+    let lines = dataset.lock().unwrap().raw_data.clone();
+    let mut processed_texts = vec![];
+
+    let mut dictionary: HashSet<String> = HashSet::new();
+
+    for sample in lines {
+        let stripped_contents = sample
+            .to_lowercase()
+            .chars()
+            .filter(|c| c.is_alphanumeric() || c.is_whitespace())
+            .collect::<String>();
+
+        let words: Vec<&str> = stripped_contents.split_whitespace().into_iter().collect();
+        for word in words {
+            if embeddings.embedding(word).is_some() {
+                dictionary.insert(word.to_owned());
+            }
+        }
+        
+        processed_texts.push(stripped_contents);
+    }
+    
+    let words: Vec<String> = dictionary.drain().collect();
+    let word_vecs: Vec<_> = words.iter()
+        .map(|word| embeddings.embedding(word).unwrap())
+        .collect();
+
+    println!("{:?}", words);
+
+    let mut word_map = MSOM::new(params.n, params.m, params.map_input_size, params.a, params.b, params.gamma);
+    word_map.fit(&word_vecs.iter().map(|sample| sample.view()).collect(), 
+        params.train_iterations, params.learning_rate_base, params.gauss_width_squared_base, params.time_constant);
+
+    println!("Word map, text vec sizes {}", words.len());
+    
+
+    let mut text_vecs = vec![];
+    for text in tqdm(processed_texts.iter()) {
+        let text_words: Vec<&str> = text.split_whitespace().into_iter().collect();
+        let mut cur_vec: Vec<f32> = vec![0.0; params.n * params.m];
+
+        for word in text_words {
+            if let Some(word_vec) = embeddings.embedding(word) {
+                let map_pos = word_map.evaluate(word_vec.view());
+                cur_vec[map_pos.0 * params.m + map_pos.1] += 1.0;
+            }
+        }
+        let vec_sum  = cur_vec.iter().sum::<f32>();
+        if vec_sum != 0.0 {
+            text_vecs.push(Array1::from_vec(cur_vec) / vec_sum);
+        }
+        else {
+            text_vecs.push(Array1::from_vec(cur_vec));
+        }
+    }
+
+    text_vecs
+}
+
+fn process_dataset_context(dataset: Arc<Mutex<DataSet>>) -> Vec<Array1<f32>> {
     let mut reader =
         BufReader::new(File::open("./resources/glove-twitter-25.txt").unwrap());
     let embeddings = Embeddings::read_text_dims(&mut reader).unwrap();
@@ -50,6 +122,22 @@ pub fn process_dataset(dataset: Arc<Mutex<DataSet>>) {
             result.push(final_vec);
         }
     }
+    vec![]
+}
+
+// Mutex gives interior mutability!
+// This finally makes sense
+pub fn process_dataset(dataset: Arc<Mutex<DataSet>>, processing_type: ProcessingType, params: SOMParams) {
+    dataset.lock().unwrap().is_being_processed = true;
+    let result = match processing_type {
+        ProcessingType::Word2Vec => process_word2vec(dataset.clone(), params),
+        ProcessingType::DatasetContext => process_dataset_context(dataset.clone()),
+    };
+
+    // ToDo: Make this shared, maybe store in Data Processing UI struct?
+    // Also, maybe use some other method for representing text
+    // I kinda don't like how you need to distribute weights with the app
+    
 
     dataset.lock().unwrap().is_being_processed = false;
     println!("{result:?}");
@@ -74,11 +162,14 @@ impl DataSet {
 pub struct DataProcessingUI {
     pub datasets: Vec<Arc<Mutex<DataSet>>>,
     shown_dataset_index: Option<usize>, 
+    current_processing_type: ProcessingType,
+    current_params: SOMParams,
 }
 
 impl Default for DataProcessingUI {
     fn default() -> Self {
-        Self { datasets: vec![], shown_dataset_index: None }
+        Self { datasets: vec![], shown_dataset_index: None, current_processing_type: ProcessingType::Word2Vec, 
+            current_params: SOMParams::default() }
     }
 }
 
@@ -158,20 +249,63 @@ impl DataProcessingUI {
                         ui.label("Unprocessed (Raw)");
                     }
                     ui.end_row();
+
+                    let n = 10;
+                    ui.label("n:");
+                    ui.add(DragValue::new(&mut self.current_params.n));
+                    ui.end_row();
+
+                    ui.label("m:");
+                    ui.add(DragValue::new(&mut self.current_params.m));
+                    ui.end_row();
+
+                    ui.label("map input size:");
+                    ui.add(DragValue::new(&mut self.current_params.map_input_size));
+                    ui.end_row();
+
+                    ui.label("a:");
+                    ui.add(DragValue::new(&mut self.current_params.a));
+                    ui.end_row();
+
+                    ui.label("b:");
+                    ui.add(DragValue::new(&mut self.current_params.b));
+                    ui.end_row();
+
+                    ui.label("gamma:");
+                    ui.add(DragValue::new(&mut self.current_params.gamma));
+                    ui.end_row();
+
+                    ui.label("train_iterations:");
+                    ui.add(DragValue::new(&mut self.current_params.train_iterations));
+                    ui.end_row();
+
+                    ui.label("learning_rate_base:");
+                    ui.add(DragValue::new(&mut self.current_params.learning_rate_base));
+                    ui.end_row();
+
+                    ui.label("gauss_width_squared_base:");
+                    ui.add(DragValue::new(&mut self.current_params.gauss_width_squared_base));
+                    ui.end_row();
+
+                    ui.label("time_constant:");
+                    ui.add(DragValue::new(&mut self.current_params.time_constant));
+                    ui.end_row();
                 });
 
-                let mut processing_type = ProcessingType::Word2Vec;
                 ComboBox::from_label("Type of text processing use")
-                .selected_text(format!("{:?}", processing_type))
+                .selected_text(format!("{:?}", self.current_processing_type))
                 .show_ui(ui, |ui| {
-                    ui.selectable_value(&mut processing_type, ProcessingType::Word2Vec, "Word2Vec");
+                    ui.selectable_value(&mut self.current_processing_type, ProcessingType::Word2Vec, "Word2Vec");
+                    ui.selectable_value(&mut self.current_processing_type, ProcessingType::DatasetContext, "DatasetContext");
                 });
 
                 if ui.button("Apply chosen processing").clicked() {
                     // ToDo: Add the actual processing and maybe add processing types to dataset struct
                     let cloned_dataset = self.datasets[ind].clone();
+                    let cloned_processing_type = self.current_processing_type.clone();
+                    let cloned_params = self.current_params.clone();
                     thread::spawn(|| {
-                        process_dataset(cloned_dataset);
+                        process_dataset(cloned_dataset, cloned_processing_type, cloned_params);
                     });
                 }
 

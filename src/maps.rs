@@ -1,12 +1,14 @@
-use std::sync::{Arc, Mutex};
+use std::{fs::File, io::{self, Read, Write}, path::PathBuf, sync::{Arc, Mutex, MutexGuard}};
 
 use egui::{include_image, Color32, ComboBox, DragValue, Frame, Grid, Image, Layout, Rounding, ScrollArea, Sense, SidePanel, Stroke, Style, Ui, Vec2};
 use ndarray_ndimage::label;
+use rfd::FileDialog;
+use serde::{Deserialize, Serialize};
 
 use crate::{msom::MSOM, DataSet};
 use egui_modal::{Modal};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SOMParams {
     pub name: String,
     pub n: usize,
@@ -47,6 +49,42 @@ impl Default for SOMParams {
         }
     }
 }
+
+impl SOMParams {
+    fn from_file(filename: &PathBuf) -> Result<Self, &str> {
+        let writer = File::options().read(true).open(filename);
+        if writer.is_err() {
+            return Err("Error while opening the file");
+        }
+
+        let res: Result<Self, serde_json::Error> = serde_json::from_reader(writer.unwrap());
+
+        if res.is_err() {
+            Err("Error parsing the file")
+        }
+        else {
+            Ok(res.unwrap())
+        }
+    }
+
+    fn to_file(&self, filename: &PathBuf) -> Result<(), &str> {
+        // let json = serde_json::to_vec(&self.map_weights)?;
+        let writer = File::options().write(true).create(true).open(filename);
+        if writer.is_err() {
+            return Err("Error while opening the file");
+        }
+
+        let res = serde_json::to_writer_pretty(writer.unwrap(), self);
+
+        if res.is_err() {
+            Err("Error while serializing the map")
+        }
+        else {
+            Ok(())
+        }
+    }
+}
+
 
 #[derive(Debug)]
 pub struct MapsUI {
@@ -106,7 +144,22 @@ impl MapsUI {
 
             response.context_menu(|ui| {
                 if ui.button("Save to file").clicked() {
+                    let files = FileDialog::new()
+                        .add_filter("Serde json file with map structure", &["json_map"])
+                        .set_directory(".")
+                        .save_file();
                     
+                    if let Some(path) = files {
+                        // ui.ctx().set_cursor_icon(egui::CursorIcon::Wait);
+                        let res = map.to_file(&path);
+                        if res.is_err() {
+                            println!("{}", res.err().unwrap());
+                        }
+
+                        // ui.ctx().set_cursor_icon(egui::CursorIcon::Default);
+                    }
+
+                    ui.close_menu();
                 }
             });
 
@@ -213,9 +266,9 @@ impl MapsUI {
                         let handle = std::thread::spawn(move || {
 
                             // ToDo: Add progress tracking and maybe thread termination
-                            cloned_weights.lock().unwrap().fit(&cloned_dataset, 
-                            train_iterations, learning_rate_base, 
-                            gauss_width_squared_base, time_constant);
+                            cloned_weights.lock().unwrap().fit(&cloned_dataset.iter().map(|sample| sample.view()).collect(), 
+                                train_iterations, learning_rate_base, 
+                                gauss_width_squared_base, time_constant);
 
                             println!("TRAINED!");
                             *cloned_status.lock().unwrap() = false;
@@ -295,6 +348,25 @@ impl MapsUI {
                     self.current_params = SOMParams::default();
 
                     modal.open();
+                }
+
+                if ui.button("Load a map from file").clicked() {
+                    self.current_params = SOMParams::default();
+
+                    let files = FileDialog::new()
+                            .add_filter("Serde json file with map structure", &["json_map"])
+                            .set_directory(".")
+                            .pick_file();
+                        
+                    if let Some(path) = files {
+                        let res = SOMParams::from_file(&path);
+                        if res.is_err() {
+                            println!("{}", res.err().unwrap());
+                        }
+                        else {
+                            self.maps.push(res.unwrap());
+                        }
+                    }
                 }
             });
         });
