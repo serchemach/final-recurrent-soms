@@ -1,0 +1,47 @@
+{
+    "raw_data": string[],
+    "processed_data": {
+    	"v":  integer,
+      	"dim": integer[],
+      	"data": integer[]
+    }[],
+    "name": string,
+    "is_being_processed": bool
+}
+
+{
+    "name": string,
+    "n": integer,
+    "m": integer,
+    "map_input_size": integer,
+    "a": float,
+    "b": float,
+    "gamma": float,
+    "train_iterations": integer,
+    "learning_rate_base": float,
+    "gauss_width_squared_base": float0,
+    "time_constant": float,
+    "map_weights": {
+        "n": integer,
+        "m": integer,
+        "map_input_size": integer,
+        "a": float,
+        "b": float,
+        "gamma": float,
+        "som": {
+            "v":  integer,
+            "dim": integer[],
+            "data": integer[]
+        }[],
+    }
+    "is_training": bool,
+}
+
+{
+    "name": string,
+    "data": float[][],
+    "word_clusters": string[][],
+    "is_calculating": bool,
+}
+
+
