@@ -3,7 +3,6 @@ mod data_processing;
 mod maps;
 mod visualizations;
 mod msom;
-mod som;
 
 use std::iter::Map;
 
