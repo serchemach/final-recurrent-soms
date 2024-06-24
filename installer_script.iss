@@ -23,24 +23,10 @@ Source: "target\release\final-recurrent-soms.exe"; DestDir: "{app}"
 [Icons]
 Name: "{group}\{cm:UninstallProgram,RecSOMs}"; Filename: "{uninstallexe}"
 
-[UninstallDelete]
-Type: files; Name: "{app}\test1.html"
+[Tasks]
+Name: StartAfterInstall; Description: Run application after install
 
-[Code]
-procedure InitializeWizard();
-begin
-    idpAddFile('https://serchemach.github.io/onthetopicof/blog/hh-analysis/', ExpandConstant('{tmp}\test1.html'));
-
-    idpDownloadAfter(wpReady);
-end;
-
-procedure CurStepChanged(CurStep: TSetupStep);
-begin
-    if CurStep = ssPostInstall then 
-    begin
-        // Copy downloaded files to application directory
-        FileCopy(ExpandConstant('{tmp}\test1.html'), ExpandConstant('{app}\test1.html'), false);
-    end;
-end;
+[Run]
+Filename: "{app}\final-recurrent-soms.exe"; Flags: shellexec skipifsilent nowait; Tasks: StartAfterInstall
 
 
